@@ -121,6 +121,52 @@ app.post('/addlink', (req, res) => {
     }
 });
 
+/**
+ * GETs all the nodes present in the database
+ */
+app.get('/nodes', (req, res) => {
+    const nodes = database.nodes;
+    res.status(200).json(nodes);
+})
+
+/**
+ * GETs all the links present in the database
+ */
+app.get('/links', (req, res) => {
+    const links = database.links;
+    res.status(200).json(links);
+})
+
+/**
+ * GETs all the nodes and links present in the 
+ * database in the format expected by cytoscape
+ */
+app.get('/graph/data', (req, res) => {
+    const nodes = database.nodes.map(node => {
+        return {
+            data : {
+                ip : node.ip,
+                id : node.id,
+                label : node.label
+            }
+        }
+    });
+
+    const links = database.links.map(link => {
+        return {
+            data : {
+                source : link.source,
+                target : link.target,
+                id : link.id,
+                label : link.label
+            }
+        };
+    });
+
+    const data = [].concat(nodes).concat(links);
+    res.status(200).json(data);
+})
+
 app.listen(PORT, () => {
     console.log(`Listening on port: ${PORT}`);
 });
