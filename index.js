@@ -15,7 +15,11 @@ const nodeIPtoPortMap = JSON.parse(fs.readFileSync('./ports.json', 'utf-8'));
 const nodeIPtoPropertiesMap = JSON.parse(fs.readFileSync('./nodes.json', 'utf-8'));
 
 const ERROR_MESSAGES = {
-    BAD_IP : "Invalid IP address provided"
+    BAD_IP : "Invalid IP address provided",
+    BAD_SOURCE : "Invalid source IP address provided",
+    BAD_TARGET : "Invalid target IP address provided",
+    BAD_SOURCE_PORT : "Invalid source port provided",
+    BAD_TARGET_PORT : "Invalid target port provided"
 }
 
 class Node {
@@ -34,16 +38,21 @@ class Node {
 
 class Link {
     /**
-     * Constructs a link using source and target
+     * Constructs a link using source, target, source port and target port
      * @constructor
      * @param {String} source 
      * @param {String} target 
+     * @param {String} sourcePort 
+     * @param {String} targetPort 
+     * @param {String} label 
      */
-    constructor(source, target, sourcePort, targetPort) {
+    constructor(source, target, sourcePort, targetPort, label) {
         this.source = source;
         this.target = target;
         this.sourcePort = sourcePort;
         this.targetPort = targetPort;
+        this.label = label ? label : "Default Link";
+        this.id = crypto.randomBytes(16).toString('hex');
     }
 }
 
@@ -82,9 +91,28 @@ app.post('/addnode', (req, res) => {
 app.post('/addlink', (req, res) => {
     const source = req.body.source;
     const target = req.body.target;
-    const link = new Link(source, target);
-    database.push(link);
-    res.status(200).json(link);
+    const sourcePort = req.body.sourcePort;
+    const targetPort = req.body.targetPort;
+    const label = req.body.label;
+    try {
+        if (!source || source == "") {
+            throw new Error(ERROR_MESSAGES.BAD_SOURCE);
+        } else if (!target || target == "") {
+            throw new Error(ERROR_MESSAGES.BAD_TARGET);
+        } else if (!sourcePort || sourcePort == "") {
+            throw new Error(ERROR_MESSAGES.BAD_SOURCE_PORT);
+        } else if (!targetPort || targetPort == "") {
+            throw new Error(ERROR_MESSAGES.BAD_TARGET_PORT);
+        } else {
+            const link = new Link(source, target, sourcePort, targetPort, label);
+            database.links.push(link);
+            res.status(200).json(link);
+        }
+    } catch(err) {
+        res.status(400).json({
+            error : err.message
+        })
+    }
 });
 
 app.listen(PORT, () => {
