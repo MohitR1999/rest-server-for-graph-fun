@@ -88,6 +88,12 @@ app.post('/addnode', (req, res) => {
     };
 });
 
+/**
+ * Adds a link to the database
+ * Receives source IP, target IP, source port, destination port, label (optional)
+ * Responds with status 200 OK and the new link formed
+ * Else 400 in case of Invalid input
+ */
 app.post('/addlink', (req, res) => {
     const source = req.body.source;
     const target = req.body.target;
