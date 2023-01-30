@@ -1,18 +1,25 @@
 const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const fs = require('fs');
-const bodyParser = require('body-parser');
-const app = express();
 const PORT = 3000;
 const morgan = require('morgan');
 const crypto = require('crypto');
-
 const database = {};
 database["nodes"] = [];
 database["links"] = [];
 database["services"] = [];
 const nodeIPtoPortMap = JSON.parse(fs.readFileSync('./ports.json', 'utf-8'));
 const nodeIPtoPropertiesMap = JSON.parse(fs.readFileSync('./nodes.json', 'utf-8'));
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors : {
+        origin : '*'
+    }
+});
 
 const ERROR_MESSAGES = {
     BAD_IP : "Invalid IP address provided",
@@ -75,6 +82,18 @@ app.post('/addnode', (req, res) => {
         if (ip && ip != "") {
             const node = new Node(ip);
             database.nodes.push(node);
+            io.emit("node", {
+                group : 'nodes',
+                data : {
+                    ip : node.ip,
+                    id : node.ip,
+                    label : node.label
+                },
+                position : {
+                    x : 300,
+                    y : 300
+                }
+            });
             res.status(200).json(node);
         } else {
             res.status(400).json({
@@ -112,6 +131,13 @@ app.post('/addlink', (req, res) => {
         } else {
             const link = new Link(source, target, sourcePort, targetPort, label);
             database.links.push(link);
+            io.emit("link", {
+                group : 'edges',
+                data : {
+                    source : link.source,
+                    target : link.target,
+                }
+            });
             res.status(200).json(link);
         }
     } catch(err) {
@@ -126,6 +152,23 @@ app.post('/addlink', (req, res) => {
  */
 app.get('/nodes', (req, res) => {
     const nodes = database.nodes;
+    for(let i = 0; i < nodes.length; i++) {
+        let node = nodes[i];
+        for(let j = 0; j < database.links.length; j++) {
+            let link = database.links[j];
+            if (node.ip == link.source) {
+                let portIndexToRemove = node.ports.indexOf(link.sourcePort);
+                if (portIndexToRemove > -1) {
+                    node.ports.splice(portIndexToRemove, 1);
+                }
+            } else if (node.ip == link.target) {
+                let portIndexToRemove = node.ports.indexOf(link.targetPort);
+                if (portIndexToRemove > -1) {
+                    node.ports.splice(portIndexToRemove, 1);
+                }
+            }
+        } 
+    }
     res.status(200).json(nodes);
 })
 
@@ -146,7 +189,7 @@ app.get('/graph/data', (req, res) => {
         return {
             data : {
                 ip : node.ip,
-                id : node.id,
+                id : node.ip,
                 label : node.label
             }
         }
@@ -167,6 +210,15 @@ app.get('/graph/data', (req, res) => {
     res.status(200).json(data);
 })
 
-app.listen(PORT, () => {
+io.on('connection', (socket) => {
+    console.log(`New connection with id: ${socket.id}`);
+    socket.on('disconnect', () => {
+        console.log(`Connection ended with ${socket.id}`);
+    });
+})
+
+io.listen(9000);
+
+httpServer.listen(PORT, () => {
     console.log(`Listening on port: ${PORT}`);
 });
